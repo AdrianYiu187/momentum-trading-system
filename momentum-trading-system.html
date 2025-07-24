@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">動能交易策略系統</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft JhengHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* Header */
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .logo {
+            font-size: 2em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .language-switcher {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .lang-btn {
+            padding: 8px 15px;
+            border: 2px solid #667eea;
+            background: transparent;
+            color: #667eea;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .lang-btn.active,
+        .lang-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        /* Navigation */
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 5px;
+            gap: 5px;
+        }
+        
+        .nav-tab {
+            flex: 1;
+            padding: 15px 20px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            color: #666;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .nav-tab.active {
+            background: white;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .nav-tab:hover:not(.active) {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+        
+        /* Content Sections */
+        .content-section {
+            display: none;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-top: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        .content-section.active {
+            display: block;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Screening Section */
+        .screening-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .control-group {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .control-group h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .market-selection {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .market-btn {
+            padding: 10px 20px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .market-btn.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #555;
+        }
+        
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* Results Table */
+        .results-container {
+            margin-top: 30px;
+            overflow-x: auto;
+        }
+        
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .results-table th {
+            background: #667eea;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        .results-table td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .results-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        /* Charts */
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin: 20px 0;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        /* Loading Spinner */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Status Indicators */
+        .status-positive {
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .status-negative {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .status-neutral {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .header-top {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .nav-tabs {
+                flex-direction: column;
+            }
+            
+            .screening-controls {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* API Status */
+        .api-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .api-status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .api-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        /* Error Messages */
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        /* Success Messages */
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+            margin: 20px 0;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-top">
+                <div class="logo" id="logo">動能交易策略系統</div>
+                <div class="header-controls">
+                    <div class="api-status disconnected" id="api-status">
+                        <div class="status-dot"></div>
+                        <span id="api-status-text">API 未連接</span>
+                    </div>
+                </div>
+                <div class="language-switcher">
+                    <button class="lang-btn active" onclick="switchLanguage('zh-TW')">繁中</button>
+                    <button class="lang-btn" onclick="switchLanguage('en')">EN</button>
+                    <button class="lang-btn" onclick="switchLanguage('zh-CN')">简中</button>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showSection('screening')">
+                    <i class="fas fa-filter"></i>
+                    <span id="nav-screening">股票篩選</span>
+                </button>
+                <button class="nav-tab" onclick="showSection('analysis')">
+                    <i class="fas fa-chart-line"></i>
+                    <span id="nav-analysis">技術分析</span>
+                </button>
+                <button class="nav-tab" onclick="showSection('backtest')">
+                    <i class="fas fa-history"></i>
+                    <span id="nav-backtest">歷史回測</span>
+                </button>
+                <button class="nav-tab" onclick="showSection('trading')">
+                    <i class="fas fa-bullseye"></i>
+                    <span id="nav-trading">交易決策</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Error/Success Messages -->
+        <div class="error-message" id="error-message"></div>
+        <div class="success-message" id="success-message"></div>
+        
+        <!-- Screening Section -->
+        <div class="content-section active" id="screening-section">
+            <h2 id="screening-title">股票篩選系統</h2>
+            <p id="screening-desc">選擇市場並設定篩選條件，系統將基於動能交易策略為您篩選潛力股票</p>
+            
+            <div class="screening-controls">
+                <!-- Market Selection -->
+                <div class="control-group">
+                    <h3 id="market-selection-title">市場選擇</h3>
+                    <div class="market-selection">
+                        <button class="market-btn selected" data-market="all" id="market-all">全部市場</button>
+                        <button class="market-btn" data-market="us" id="market-us">美國股市</button>
+                        <button class="market-btn" data-market="hk" id="market-hk">香港股市</button>
+                        <button class="market-btn" data-market="cn" id="market-cn">中國A股</button>
+                    </div>
+                </div>
+                
+                <!-- Technical Criteria -->
+                <div class="control-group">
+                    <h3 id="technical-criteria-title">技術指標條件</h3>
+                    <div class="input-group">
+                        <label for="price-change" id="price-change-label">價格變動 (%)</label>
+                        <input type="number" id="price-change" min="0" max="100" value="10" step="1">
+                    </div>
+                    <div class="input-group">
+                        <label for="volume-ratio" id="volume-ratio-label">成交量倍數</label>
+                        <input type="number" id="volume-ratio" min="1" max="10" value="1.5" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="rsi-range" id="rsi-range-label">RSI 範圍</label>
+                        <select id="rsi-range">
+                            <option value="50-70">50-70 (強勢)</option>
+                            <option value="30-50">30-50 (中性)</option>
+                            <option value="all">全部範圍</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Time Frame -->
+                <div class="control-group">
+                    <h3 id="timeframe-title">時間範圍</h3>
+                    <div class="input-group">
+                        <label for="time-period" id="time-period-label">分析期間</label>
+                        <select id="time-period">
+                            <option value="1M">近1個月</option>
+                            <option value="3M">近3個月</option>
+                            <option value="6M">近6個月</option>
+                            <option value="1Y">近1年</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="min-market-cap" id="min-market-cap-label">最小市值 (億)</label>
+                        <input type="number" id="min-market-cap" min="0" value="100" step="10">
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn-primary" onclick="startScreening()" id="start-screening-btn">
+                <i class="fas fa-search"></i> 開始篩選
+            </button>
+            
+            <!-- Loading -->
+            <div class="loading" id="screening-loading">
+                <div class="spinner"></div>
+                <p id="loading-text">正在篩選股票，請稍候...</p>
+            </div>
+            
+            <!-- Results -->
+            <div class="results-container" id="screening-results" style="display: none;">
+                <h3 id="results-title">篩選結果</h3>
+                <table class="results-table" id="results-table">
+                    <thead>
+                        <tr>
+                            <th id="th-symbol">股票代碼</th>
+                            <th id="th-name">公司名稱</th>
+                            <th id="th-market">市場</th>
+                            <th id="th-price">股價</th>
+                            <th id="th-change">變動%</th>
+                            <th id="th-volume">成交量比</th>
+                            <th id="th-rsi">RSI</th>
+                            <th id="th-score">評分</th>
+                            <th id="th-action">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Analysis Section -->
+        <div class="content-section" id="analysis-section">
+            <h2 id="analysis-title">深度技術分析</h2>
+            <p id="analysis-desc">選擇股票進行深度技術分析，包含價格圖表、技術指標和催化劑分析</p>
+            
+            <div class="control-group">
+                <h3 id="stock-selection-title">選擇分析股票</h3>
+                <div class="input-group">
+                    <label for="analysis-symbol" id="analysis-symbol-label">股票代碼</label>
+                    <input type="text" id="analysis-symbol" placeholder="輸入股票代碼 (例: AAPL, 0700.HK, 000001.SZ)">
+                </div>
+                <button class="btn-primary" onclick="analyzeStock()" id="analyze-btn">
+                    <i class="fas fa-chart-area"></i> 開始分析
+                </button>
+            </div>
+            
+            <!-- Loading -->
+            <div class="loading" id="analysis-loading">
+                <div class="spinner"></div>
+                <p id="analysis-loading-text">正在分析股票數據，請稍候...</p>
+            </div>
+            
+            <!-- Analysis Results -->
+            <div id="analysis-results" style="display: none;">
+                <div class="chart-grid">
+                    <div class="chart-container">
+                        <h4 id="price-chart-title">價格走勢圖</h4>
+                        <canvas id="price-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h4 id="volume-chart-title">成交量圖</h4>
+                        <canvas id="volume-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h4 id="indicators-chart-title">技術指標</h4>
+                        <canvas id="indicators-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h4 id="catalyst-title">催化劑分析</h4>
+                        <div id="catalyst-content">
+                            <!-- Catalyst information will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Backtest Section -->
+        <div class="content-section" id="backtest-section">
+            <h2 id="backtest-title">歷史回測系統</h2>
+            <p id="backtest-desc">基於歷史數據驗證動能交易策略的有效性</p>
+            
+            <div class="screening-controls">
+                <div class="control-group">
+                    <h3 id="backtest-params-title">回測參數</h3>
+                    <div class="input-group">
+                        <label for="backtest-symbol" id="backtest-symbol-label">股票代碼</label>
+                        <input type="text" id="backtest-symbol" placeholder="輸入股票代碼">
+                    </div>
+                    <div class="input-group">
+                        <label for="backtest-period" id="backtest-period-label">回測期間</label>
+                        <select id="backtest-period">
+                            <option value="1Y">1年</option>
+                            <option value="2Y">2年</option>
+                            <option value="3Y">3年</option>
+                            <option value="5Y">5年</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3 id="strategy-params-title">策略參數</h3>
+                    <div class="input-group">
+                        <label for="ma-short" id="ma-short-label">短期均線</label>
+                        <input type="number" id="ma-short" value="50" min="5" max="200">
+                    </div>
+                    <div class="input-group">
+                        <label for="ma-long" id="ma-long-label">長期均線</label>
+                        <input type="number" id="ma-long" value="200" min="50" max="500">
+                    </div>
+                    <div class="input-group">
+                        <label for="rsi-buy" id="rsi-buy-label">RSI買入閾值</label>
+                        <input type="number" id="rsi-buy" value="50" min="30" max="70">
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn-primary" onclick="runBacktest()" id="run-backtest-btn">
+                <i class="fas fa-play"></i> 運行回測
+            </button>
+            
+            <!-- Loading -->
+            <div class="loading" id="backtest-loading">
+                <div class="spinner"></div>
+                <p id="backtest-loading-text">正在運行回測，請稍候...</p>
+            </div>
+            
+            <!-- Backtest Results -->
+            <div id="backtest-results" style="display: none;">
+                <div class="chart-container">
+                    <h4 id="backtest-performance-title">策略表現</h4>
+                    <canvas id="backtest-chart"></canvas>
+                </div>
+                
+                <div class="screening-controls">
+                    <div class="control-group">
+                        <h3 id="performance-metrics-title">績效指標</h3>
+                        <div id="performance-metrics">
+                            <!-- Performance metrics will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Trading Section -->
+        <div class="content-section" id="trading-section">
+            <h2 id="trading-title">交易決策系統</h2>
+            <p id="trading-desc">基於分析結果制定具體的交易計劃</p>
+            
+            <div class="control-group">
+                <h3 id="selected-stocks-title">已選股票</h3>
+                <div id="selected-stocks-list">
+                    <!-- Selected stocks will be shown here -->
+                </div>
+            </div>
+            
+            <button class="btn-primary" onclick="generateTradingPlan()" id="generate-plan-btn">
+                <i class="fas fa-calculator"></i> 生成交易計劃
+            </button>
+            
+            <!-- Trading Plan Results -->
+            <div id="trading-plan-results" style="display: none;">
+                <div class="chart-container">
+                    <h4 id="risk-analysis-title">風險分析</h4>
+                    <canvas id="risk-chart"></canvas>
+                </div>
+                
+                <div class="results-container">
+                    <h3 id="trading-plan-title">交易計劃</h3>
+                    <table class="results-table" id="trading-plan-table">
+                        <thead>
+                            <tr>
+                                <th id="th-trading-symbol">股票</th>
+                                <th id="th-entry-price">入場價</th>
+                                <th id="th-target-price">目標價</th>
+                                <th id="th-stop-loss">停損價</th>
+                                <th id="th-position-size">倉位大小</th>
+                                <th id="th-risk-reward">風險回報比</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trading-plan-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_CONFIG = {
+            tushare: 'e9827dca7dae7177259fcbbbc618a9689a482887a3daddd0bbcc5c32',
+            alphaVantage: 'LAHWHIN15OAVH7I3',
+            newsAPI: 'bdcc5675-0e2b-4413-88be-4b9d16e25528'
+        };
+        
+        // Global Variables
+        let currentLanguage = 'zh-TW';
+        let selectedMarkets = ['all'];
+        let selectedStocks = [];
+        let chartInstances = {};
+        
+        // Language Translations
+        const translations = {
+            'zh-TW': {
+                'page-title': '動能交易策略系統',
+                'logo': '動能交易策略系統',
+                'api-status-connected': 'API 已連接',
+                'api-status-disconnected': 'API 未連接',
+                'nav-screening': '股票篩選',
+                'nav-analysis': '技術分析',
+                'nav-backtest': '歷史回測',
+                'nav-trading': '交易決策',
+                'screening-title': '股票篩選系統',
+                'screening-desc': '選擇市場並設定篩選條件，系統將基於動能交易策略為您篩選潛力股票',
+                'market-selection-title': '市場選擇',
+                'market-all': '全部市場',
+                'market-us': '美國股市',
+                'market-hk': '香港股市',
+                'market-cn': '中國A股',
+                'technical-criteria-title': '技術指標條件',
+                'price-change-label': '價格變動 (%)',
+                'volume-ratio-label': '成交量倍數',
+                'rsi-range-label': 'RSI 範圍',
+                'timeframe-title': '時間範圍',
+                'time-period-label': '分析期間',
+                'min-market-cap-label': '最小市值 (億)',
+                'start-screening-btn': '開始篩選',
+                'loading-text': '正在篩選股票，請稍候...',
+                'results-title': '篩選結果',
+                'th-symbol': '股票代碼',
+                'th-name': '公司名稱',
+                'th-market': '市場',
+                'th-price': '股價',
+                'th-change': '變動%',
+                'th-volume': '成交量比',
+                'th-rsi': 'RSI',
+                'th-score': '評分',
+                'th-action': '操作'
+            },
+            'en': {
+                'page-title': 'Momentum Trading System',
+                'logo': 'Momentum Trading System',
+                'api-status-connected': 'API Connected',
+                'api-status-disconnected': 'API Disconnected',
+                'nav-screening': 'Stock Screening',
+                'nav-analysis': 'Technical Analysis', 
+                'nav-backtest': 'Historical Backtest',
+                'nav-trading': 'Trading Decisions',
+                'screening-title': 'Stock Screening System',
+                'screening-desc': 'Select markets and set screening criteria, the system will filter potential stocks based on momentum trading strategy',
+                'market-selection-title': 'Market Selection',
+                'market-all': 'All Markets',
+                'market-us': 'US Stock Market',
+                'market-hk': 'Hong Kong Stock Market',
+                'market-cn': 'China A-Shares',
+                'technical-criteria-title': 'Technical Criteria',
+                'price-change-label': 'Price Change (%)',
+                'volume-ratio-label': 'Volume Ratio',
+                'rsi-range-label': 'RSI Range',
+                'timeframe-title': 'Time Frame',
+                'time-period-label': 'Analysis Period',
+                'min-market-cap-label': 'Min Market Cap (100M)',
+                'start-screening-btn': 'Start Screening',
+                'loading-text': 'Screening stocks, please wait...',
+                'results-title': 'Screening Results',
+                'th-symbol': 'Symbol',
+                'th-name': 'Company Name',
+                'th-market': 'Market',
+                'th-price': 'Price',
+                'th-change': 'Change%',
+                'th-volume': 'Volume Ratio',
+                'th-rsi': 'RSI',
+                'th-score': 'Score',
+                'th-action': 'Action'
+            },
+            'zh-CN': {
+                'page-title': '动能交易策略系统',
+                'logo': '动能交易策略系统',
+                'api-status-connected': 'API 已连接',
+                'api-status-disconnected': 'API 未连接',
+                'nav-screening': '股票筛选',
+                'nav-analysis': '技术分析',
+                'nav-backtest': '历史回测',
+                'nav-trading': '交易决策',
+                'screening-title': '股票筛选系统',
+                'screening-desc': '选择市场并设定筛选条件，系统将基于动能交易策略为您筛选潜力股票',
+                'market-selection-title': '市场选择',
+                'market-all': '全部市场',
+                'market-us': '美国股市',
+                'market-hk': '香港股市',
+                'market-cn': '中国A股',
+                'technical-criteria-title': '技术指标条件',
+                'price-change-label': '价格变动 (%)',
+                'volume-ratio-label': '成交量倍数',
+                'rsi-range-label': 'RSI 范围',
+                'timeframe-title': '时间范围',
+                'time-period-label': '分析期间',
+                'min-market-cap-label': '最小市值 (亿)',
+                'start-screening-btn': '开始筛选',
+                'loading-text': '正在筛选股票，请稍候...',
+                'results-title': '筛选结果',
+                'th-symbol': '股票代码',
+                'th-name': '公司名称',
+                'th-market': '市场',
+                'th-price': '股价',
+                'th-change': '变动%',
+                'th-volume': '成交量比',
+                'th-rsi': 'RSI',
+                'th-score': '评分',
+                'th-action': '操作'
+            }
+        };
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+            testAPIConnections();
+        });
+        
+        function initializeApp() {
+            // Initialize market selection
+            document.querySelectorAll('.market-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    handleMarketSelection(this);
+                });
+            });
+            
+            // Initialize language
+            switchLanguage(currentLanguage);
+        }
+        
+        // Language Switching
+        function switchLanguage(lang) {
+            currentLanguage = lang;
+            document.documentElement.lang = lang;
+            
+            // Update active language button
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Apply translations
+            const langData = translations[lang];
+            if (langData) {
+                Object.keys(langData).forEach(key => {
+                    const element = document.getElementById(key);
+                    if (element) {
+                        if (element.tagName === 'INPUT' && element.type === 'text') {
+                            element.placeholder = langData[key];
+                        } else {
+                            element.textContent = langData[key];
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Navigation
+        function showSection(sectionName) {
+            // Hide all sections
+            document.querySelectorAll('.content-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionName + '-section').classList.add('active');
+            
+            // Update nav tabs
+            document.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+        
+        // Market Selection
+        function handleMarketSelection(button) {
+            const market = button.dataset.market;
+            
+            if (market === 'all') {
+                // Select all markets
+                document.querySelectorAll('.market-btn').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+                button.classList.add('selected');
+                selectedMarkets = ['all'];
+            } else {
+                // Toggle individual market
+                const allBtn = document.querySelector('[data-market="all"]');
+                allBtn.classList.remove('selected');
+                
+                button.classList.toggle('selected');
+                
+                // Update selected markets array
+                selectedMarkets = Array.from(document.querySelectorAll('.market-btn.selected'))
+                    .map(btn => btn.dataset.market)
+                    .filter(m => m !== 'all');
+                
+                if (selectedMarkets.length === 0) {
+                    allBtn.classList.add('selected');
+                    selectedMarkets = ['all'];
+                }
+            }
+        }
+        
+        // API Functions
+        async function testAPIConnections() {
+            try {
+                // Test API connections here
+                // For demo purposes, we'll simulate a successful connection
+                setTimeout(() => {
+                    updateAPIStatus(true);
+                }, 1000);
+            } catch (error) {
+                updateAPIStatus(false);
+                showError('API連接失敗: ' + error.message);
+            }
+        }
+        
+        function updateAPIStatus(connected) {
+            const statusElement = document.getElementById('api-status');
+            const statusText = document.getElementById('api-status-text');
+            
+            if (connected) {
+                statusElement.className = 'api-status connected';
+                statusText.textContent = translations[currentLanguage]['api-status-connected'] || 'API 已連接';
+            } else {
+                statusElement.className = 'api-status disconnected';
+                statusText.textContent = translations[currentLanguage]['api-status-disconnected'] || 'API 未連接';
+            }
+        }
+        
+        // Screening Functions
+        async function startScreening() {
+            showLoading('screening-loading');
+            hideError();
+            
+            try {
+                const criteria = {
+                    markets: selectedMarkets,
+                    priceChange: parseFloat(document.getElementById('price-change').value),
+                    volumeRatio: parseFloat(document.getElementById('volume-ratio').value),
+                    rsiRange: document.getElementById('rsi-range').value,
+                    timePeriod: document.getElementById('time-period').value,
+                    minMarketCap: parseFloat(document.getElementById('min-market-cap').value)
+                };
+                
+                const results = await performScreening(criteria);
+                displayScreeningResults(results);
+                
+            } catch (error) {
+                showError('篩選過程中發生錯誤: ' + error.message);
+            } finally {
+                hideLoading('screening-loading');
+            }
+        }
+        
+        async function performScreening(criteria) {
+            // Simulate API call for demo
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const mockResults = [
+                        { symbol: 'AAPL', name: 'Apple Inc.', market: 'US', price: 246.49, change: 15.2, volumeRatio: 1.8, rsi: 68, score: 85 },
+                        { symbol: 'MSFT', name: 'Microsoft Corp.', market: 'US', price: 510.62, change: 12.4, volumeRatio: 1.6, rsi: 65, score: 82 },
+                        { symbol: '0700.HK', name: 'Tencent Holdings', market: 'HK', price: 555.50, change: 18.7, volumeRatio: 2.1, rsi: 72, score: 88 },
+                        { symbol: '000001.SZ', name: '平安银行', market: 'CN', price: 16.85, change: 22.3, volumeRatio: 1.9, rsi: 69, score: 79 }
+                    ];
+                    resolve(mockResults);
+                }, 2000);
+            });
+        }
+        
+        function displayScreeningResults(results) {
+            const tbody = document.getElementById('results-tbody');
+            tbody.innerHTML = '';
+            
+            results.forEach(stock => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${stock.symbol}</td>
+                    <td>${stock.name}</td>
+                    <td>${stock.market}</td>
+                    <td>$${stock.price.toFixed(2)}</td>
+                    <td class="status-positive">+${stock.change.toFixed(1)}%</td>
+                    <td>${stock.volumeRatio.toFixed(1)}x</td>
+                    <td>${stock.rsi.toFixed(0)}</td>
+                    <td><strong>${stock.score}</strong></td>
+                    <td>
+                        <button class="btn-primary" onclick="selectStock('${stock.symbol}')" style="padding: 5px 10px; font-size: 12px;">
+                            <i class="fas fa-plus"></i> 選擇
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('screening-results').style.display = 'block';
+        }
+        
+        // Analysis Functions
+        async function analyzeStock() {
+            const symbol = document.getElementById('analysis-symbol').value.trim();
+            if (!symbol) {
+                showError('請輸入股票代碼');
+                return;
+            }
+            
+            showLoading('analysis-loading');
+            hideError();
+            
+            try {
+                const analysisData = await getStockAnalysis(symbol);
+                displayAnalysisResults(analysisData);
+            } catch (error) {
+                showError('分析過程中發生錯誤: ' + error.message);
+            } finally {
+                hideLoading('analysis-loading');
+            }
+        }
+        
+        async function getStockAnalysis(symbol) {
+            // Simulate API call for demo
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const mockData = {
+                        symbol: symbol,
+                        priceData: generateMockPriceData(),
+                        volumeData: generateMockVolumeData(),
+                        indicators: {
+                            rsi: generateMockRSIData(),
+                            macd: generateMockMACDData()
+                        },
+                        catalysts: [
+                            '公司宣布新產品發布計劃',
+                            '分析師上調目標價',
+                            '市場情緒好轉',
+                            '行業政策利好'
+                        ]
+                    };
+                    resolve(mockData);
+                }, 1500);
+            });
+        }
+        
+        function displayAnalysisResults(data) {
+            // Create price chart
+            createPriceChart(data.priceData);
+            
+            // Create volume chart  
+            createVolumeChart(data.volumeData);
+            
+            // Create indicators chart
+            createIndicatorsChart(data.indicators);
+            
+            // Display catalysts
+            displayCatalysts(data.catalysts);
+            
+            document.getElementById('analysis-results').style.display = 'block';
+        }
+        
+        // Backtest Functions
+        async function runBacktest() {
+            const symbol = document.getElementById('backtest-symbol').value.trim();
+            if (!symbol) {
+                showError('請輸入股票代碼');
+                return;
+            }
+            
+            showLoading('backtest-loading');
+            hideError();
+            
+            try {
+                const backtestData = await performBacktest(symbol);
+                displayBacktestResults(backtestData);
+            } catch (error) {
+                showError('回測過程中發生錯誤: ' + error.message);
+            } finally {
+                hideLoading('backtest-loading');
+            }
+        }
+        
+        async function performBacktest(symbol) {
+            // Simulate backtest calculation
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const mockResults = {
+                        symbol: symbol,
+                        performance: generateMockBacktestData(),
+                        metrics: {
+                            totalReturn: 25.6,
+                            winRate: 68.5,
+                            maxDrawdown: -12.3,
+                            sharpeRatio: 1.45,
+                            trades: 24
+                        }
+                    };
+                    resolve(mockResults);
+                }, 2000);
+            });
+        }
+        
+        function displayBacktestResults(data) {
+            createBacktestChart(data.performance);
+            displayPerformanceMetrics(data.metrics);
+            document.getElementById('backtest-results').style.display = 'block';
+        }
+        
+        // Trading Plan Functions
+        async function generateTradingPlan() {
+            if (selectedStocks.length === 0) {
+                showError('請先選擇股票');
+                return;
+            }
+            
+            try {
+                const tradingPlan = await createTradingPlan(selectedStocks);
+                displayTradingPlan(tradingPlan);
+            } catch (error) {
+                showError('生成交易計劃時發生錯誤: ' + error.message);
+            }
+        }
+        
+        async function createTradingPlan(stocks) {
+            // Simulate trading plan generation
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    const plans = stocks.map(symbol => ({
+                        symbol: symbol,
+                        entryPrice: (Math.random() * 100 + 50).toFixed(2),
+                        targetPrice: (Math.random() * 120 + 80).toFixed(2),
+                        stopLoss: (Math.random() * 80 + 40).toFixed(2),
+                        positionSize: (Math.random() * 10 + 5).toFixed(1),
+                        riskReward: (Math.random() * 2 + 1.5).toFixed(1)
+                    }));
+                    resolve(plans);
+                }, 1000);
+            });
+        }
+        
+        function displayTradingPlan(plans) {
+            const tbody = document.getElementById('trading-plan-tbody');
+            tbody.innerHTML = '';
+            
+            plans.forEach(plan => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${plan.symbol}</td>
+                    <td>$${plan.entryPrice}</td>
+                    <td class="status-positive">$${plan.targetPrice}</td>
+                    <td class="status-negative">$${plan.stopLoss}</td>
+                    <td>${plan.positionSize}%</td>
+                    <td>${plan.riskReward}:1</td>
+                `;
+                tbody.appendChild(row);
+            });
+            
+            document.getElementById('trading-plan-results').style.display = 'block';
+        }
+        
+        // Chart Functions
+        function createPriceChart(data) {
+            const ctx = document.getElementById('price-chart').getContext('2d');
+            
+            if (chartInstances.priceChart) {
+                chartInstances.priceChart.destroy();
+            }
+            
+            chartInstances.priceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: '股價',
+                        data: data.prices,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createVolumeChart(data) {
+            const ctx = document.getElementById('volume-chart').getContext('2d');
+            
+            if (chartInstances.volumeChart) {
+                chartInstances.volumeChart.destroy();
+            }
+            
+            chartInstances.volumeChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: '成交量',
+                        data: data.volumes,
+                        backgroundColor: 'rgba(118, 75, 162, 0.6)',
+                        borderColor: '#764ba2',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+        
+        function createIndicatorsChart(indicators) {
+            const ctx = document.getElementById('indicators-chart').getContext('2d');
+            
+            if (chartInstances.indicatorsChart) {
+                chartInstances.indicatorsChart.destroy();
+            }
+            
+            chartInstances.indicatorsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: indicators.labels,
+                    datasets: [{
+                        label: 'RSI',
+                        data: indicators.rsi,
+                        borderColor: '#28a745',
+                        yAxisID: 'y'
+                    }, {
+                        label: 'MACD',
+                        data: indicators.macd,
+                        borderColor: '#dc3545',
+                        yAxisID: 'y1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    }
+                }
+            });
+        }
+        
+        function createBacktestChart(data) {
+            const ctx = document.getElementById('backtest-chart').getContext('2d');
+            
+            if (chartInstances.backtestChart) {
+                chartInstances.backtestChart.destroy();
+            }
+            
+            chartInstances.backtestChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: '策略收益',
+                        data: data.returns,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        fill: true
+                    }, {
+                        label: '基準收益',
+                        data: data.benchmark,
+                        borderColor: '#764ba2',
+                        backgroundColor: 'rgba(118, 75, 162, 0.1)',
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+        
+        // Mock Data Generators
+        function generateMockPriceData() {
+            const labels = [];
+            const prices = [];
+            const startDate = new Date();
+            startDate.setMonth(startDate.getMonth() - 3);
+            
+            for (let i = 0; i < 90; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                labels.push(date.toLocaleDateString());
+                prices.push(Math.random() * 50 + 100 + Math.sin(i / 10) * 20);
+            }
+            
+            return { labels, prices };
+        }
+        
+        function generateMockVolumeData() {
+            const labels = [];
+            const volumes = [];
+            const startDate = new Date();
+            startDate.setMonth(startDate.getMonth() - 3);
+            
+            for (let i = 0; i < 90; i++) {
+                const date = new Date(startDate);
+                date.setDate(date.getDate() + i);
+                labels.push(date.toLocaleDateString());
+                volumes.push(Math.random() * 10000000 + 5000000);
+            }
+            
+            return { labels, volumes };
+        }
+        
+        function generateMockRSIData() {
+            return Array.from({ length: 90 }, () => Math.random() * 40 + 30);
+        }
+        
+        function generateMockMACDData() {
+            return Array.from({ length: 90 }, () => Math.random() * 4 - 2);
+        }
+        
+        function generateMockBacktestData() {
+            const labels = [];
+            const returns = [];
+            const benchmark = [];
+            let strategyValue = 100;
+            let benchmarkValue = 100;
+            
+            for (let i = 0; i < 252; i++) {
+                const date = new Date();
+                date.setDate(date.getDate() - (252 - i));
+                labels.push(date.toLocaleDateString());
+                
+                strategyValue *= (1 + (Math.random() - 0.48) * 0.03);
+                benchmarkValue *= (1 + (Math.random() - 0.49) * 0.02);
+                
+                returns.push(strategyValue);
+                benchmark.push(benchmarkValue);
+            }
+            
+            return { labels, returns, benchmark };
+        }
+        
+        // Utility Functions
+        function selectStock(symbol) {
+            if (!selectedStocks.includes(symbol)) {
+                selectedStocks.push(symbol);
+                showSuccess(`已選擇股票: ${symbol}`);
+                updateSelectedStocksList();
+            }
+        }
+        
+        function updateSelectedStocksList() {
+            const container = document.getElementById('selected-stocks-list');
+            container.innerHTML = selectedStocks.map(symbol => 
+                `<span class="market-btn selected" style="margin: 5px;">
+                    ${symbol} 
+                    <i class="fas fa-times" onclick="removeStock('${symbol}')" style="margin-left: 8px; cursor: pointer;"></i>
+                </span>`
+            ).join('');
+        }
+        
+        function removeStock(symbol) {
+            selectedStocks = selectedStocks.filter(s => s !== symbol);
+            updateSelectedStocksList();
+        }
+        
+        function displayCatalysts(catalysts) {
+            const container = document.getElementById('catalyst-content');
+            container.innerHTML = catalysts.map(catalyst => 
+                `<div class="catalyst-item" style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-left: 4px solid #667eea;">
+                    <i class="fas fa-lightbulb" style="color: #667eea; margin-right: 8px;"></i>
+                    ${catalyst}
+                </div>`
+            ).join('');
+        }
+        
+        function displayPerformanceMetrics(metrics) {
+            const container = document.getElementById('performance-metrics');
+            container.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                    <div class="metric-item">
+                        <strong>總收益率:</strong> 
+                        <span class="status-positive">${metrics.totalReturn.toFixed(1)}%</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>勝率:</strong> 
+                        <span class="status-positive">${metrics.winRate.toFixed(1)}%</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>最大回撤:</strong> 
+                        <span class="status-negative">${metrics.maxDrawdown.toFixed(1)}%</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>夏普比率:</strong> 
+                        <span class="status-positive">${metrics.sharpeRatio.toFixed(2)}</span>
+                    </div>
+                    <div class="metric-item">
+                        <strong>交易次數:</strong> 
+                        <span>${metrics.trades}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showLoading(elementId) {
+            document.getElementById(elementId).style.display = 'block';
+        }
+        
+        function hideLoading(elementId) {
+            document.getElementById(elementId).style.display = 'none';
+        }
+        
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        }
+        
+        function hideError() {
+            document.getElementById('error-message').style.display = 'none';
+        }
+        
+        function showSuccess(message) {
+            const successElement = document.getElementById('success-message');
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+            setTimeout(() => {
+                successElement.style.display = 'none';
+            }, 3000);
+        }
+    </script>
+</body>
+</html> 

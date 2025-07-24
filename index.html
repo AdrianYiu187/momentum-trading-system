@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">動能交易策略系統</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-top">
+                <div class="logo" id="logo">動能交易策略系統</div>
+                <div class="header-controls">
+                    <div class="api-status disconnected" id="api-status">
+                        <div class="status-dot"></div>
+                        <span id="api-status-text">API 未連接</span>
+                    </div>
+                </div>
+                <div class="language-switcher">
+                    <button class="lang-btn active" onclick="switchLanguage('zh-TW')">繁中</button>
+                    <button class="lang-btn" onclick="switchLanguage('en')">EN</button>
+                    <button class="lang-btn" onclick="switchLanguage('zh-CN')">简中</button>
+                </div>
+            </div>
+            
+            <!-- Navigation -->
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="showSection('screening')">
+                    <i class="fas fa-filter"></i>
+                    <span id="nav-screening">股票篩選</span>
+                </button>
+                <button class="nav-tab" onclick="showSection('analysis')">
+                    <i class="fas fa-chart-line"></i>
+                    <span id="nav-analysis">技術分析</span>
+                </button>
+                <button class="nav-tab" onclick="showSection('backtest')">
+                    <i class="fas fa-history"></i>
+                    <span id="nav-backtest">歷史回測</span>
+                </button>
+                <button class="nav-tab" onclick="showSection('trading')">
+                    <i class="fas fa-bullseye"></i>
+                    <span id="nav-trading">交易決策</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Error/Success Messages -->
+        <div class="error-message" id="error-message"></div>
+        <div class="success-message" id="success-message"></div>
+        
+        <!-- Screening Section -->
+        <div class="content-section active" id="screening-section">
+            <h2 id="screening-title">股票篩選系統</h2>
+            <p id="screening-desc">選擇市場並設定篩選條件，系統將基於動能交易策略為您篩選潛力股票</p>
+            
+            <div class="screening-controls">
+                <!-- Market Selection -->
+                <div class="control-group">
+                    <h3 id="market-selection-title">市場選擇</h3>
+                    <div class="market-selection">
+                        <button class="market-btn selected" data-market="all" id="market-all">全部市場</button>
+                        <button class="market-btn" data-market="us" id="market-us">美國股市</button>
+                        <button class="market-btn" data-market="hk" id="market-hk">香港股市</button>
+                        <button class="market-btn" data-market="cn" id="market-cn">中國A股</button>
+                    </div>
+                </div>
+                
+                <!-- Technical Criteria -->
+                <div class="control-group">
+                    <h3 id="technical-criteria-title">技術指標條件</h3>
+                    <div class="input-group">
+                        <label for="price-change" id="price-change-label">價格變動 (%)</label>
+                        <input type="number" id="price-change" min="0" max="100" value="10" step="1">
+                    </div>
+                    <div class="input-group">
+                        <label for="volume-ratio" id="volume-ratio-label">成交量倍數</label>
+                        <input type="number" id="volume-ratio" min="1" max="10" value="1.5" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="rsi-range" id="rsi-range-label">RSI 範圍</label>
+                        <select id="rsi-range">
+                            <option value="50-70">50-70 (強勢)</option>
+                            <option value="30-50">30-50 (中性)</option>
+                            <option value="all">全部範圍</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Time Frame -->
+                <div class="control-group">
+                    <h3 id="timeframe-title">時間範圍</h3>
+                    <div class="input-group">
+                        <label for="time-period" id="time-period-label">分析期間</label>
+                        <select id="time-period">
+                            <option value="1M">近1個月</option>
+                            <option value="3M">近3個月</option>
+                            <option value="6M">近6個月</option>
+                            <option value="1Y">近1年</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="min-market-cap" id="min-market-cap-label">最小市值 (億)</label>
+                        <input type="number" id="min-market-cap" min="0" value="100" step="10">
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn-primary" onclick="startScreening()" id="start-screening-btn">
+                <i class="fas fa-search"></i> 開始篩選
+            </button>
+            
+            <!-- Loading -->
+            <div class="loading" id="screening-loading">
+                <div class="spinner"></div>
+                <p id="loading-text">正在篩選股票，請稍候...</p>
+            </div>
+            
+            <!-- Results -->
+            <div class="results-container" id="screening-results" style="display: none;">
+                <h3 id="results-title">篩選結果</h3>
+                <table class="results-table" id="results-table">
+                    <thead>
+                        <tr>
+                            <th id="th-symbol">股票代碼</th>
+                            <th id="th-name">公司名稱</th>
+                            <th id="th-market">市場</th>
+                            <th id="th-price">股價</th>
+                            <th id="th-change">變動%</th>
+                            <th id="th-volume">成交量比</th>
+                            <th id="th-rsi">RSI</th>
+                            <th id="th-score">評分</th>
+                            <th id="th-action">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-tbody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Analysis Section -->
+        <div class="content-section" id="analysis-section">
+            <h2 id="analysis-title">深度技術分析</h2>
+            <p id="analysis-desc">選擇股票進行深度技術分析，包含價格圖表、技術指標和催化劑分析</p>
+            
+            <div class="control-group">
+                <h3 id="stock-selection-title">選擇分析股票</h3>
+                <div class="input-group">
+                    <label for="analysis-symbol" id="analysis-symbol-label">股票代碼</label>
+                    <input type="text" id="analysis-symbol" placeholder="輸入股票代碼 (例: AAPL, 0700.HK, 000001.SZ)">
+                </div>
+                <button class="btn-primary" onclick="analyzeStock()" id="analyze-btn">
+                    <i class="fas fa-chart-area"></i> 開始分析
+                </button>
+            </div>
+            
+            <!-- Loading -->
+            <div class="loading" id="analysis-loading">
+                <div class="spinner"></div>
+                <p id="analysis-loading-text">正在分析股票數據，請稍候...</p>
+            </div>
+            
+            <!-- Analysis Results -->
+            <div id="analysis-results" style="display: none;">
+                <div class="chart-grid">
+                    <div class="chart-container">
+                        <h4 id="price-chart-title">價格走勢圖</h4>
+                        <canvas id="price-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h4 id="volume-chart-title">成交量圖</h4>
+                        <canvas id="volume-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h4 id="indicators-chart-title">技術指標</h4>
+                        <canvas id="indicators-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h4 id="catalyst-title">催化劑分析</h4>
+                        <div id="catalyst-content">
+                            <!-- Catalyst information will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Backtest Section -->
+        <div class="content-section" id="backtest-section">
+            <h2 id="backtest-title">歷史回測系統</h2>
+            <p id="backtest-desc">基於歷史數據驗證動能交易策略的有效性</p>
+            
+            <div class="screening-controls">
+                <div class="control-group">
+                    <h3 id="backtest-params-title">回測參數</h3>
+                    <div class="input-group">
+                        <label for="backtest-symbol" id="backtest-symbol-label">股票代碼</label>
+                        <input type="text" id="backtest-symbol" placeholder="輸入股票代碼">
+                    </div>
+                    <div class="input-group">
+                        <label for="backtest-period" id="backtest-period-label">回測期間</label>
+                        <select id="backtest-period">
+                            <option value="1Y">1年</option>
+                            <option value="2Y">2年</option>
+                            <option value="3Y">3年</option>
+                            <option value="5Y">5年</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <h3 id="strategy-params-title">策略參數</h3>
+                    <div class="input-group">
+                        <label for="ma-short" id="ma-short-label">短期均線</label>
+                        <input type="number" id="ma-short" value="50" min="5" max="200">
+                    </div>
+                    <div class="input-group">
+                        <label for="ma-long" id="ma-long-label">長期均線</label>
+                        <input type="number" id="ma-long" value="200" min="50" max="500">
+                    </div>
+                    <div class="input-group">
+                        <label for="rsi-buy" id="rsi-buy-label">RSI買入閾值</label>
+                        <input type="number" id="rsi-buy" value="50" min="30" max="70">
+                    </div>
+                </div>
+            </div>
+            
+            <button class="btn-primary" onclick="runBacktest()" id="run-backtest-btn">
+                <i class="fas fa-play"></i> 運行回測
+            </button>
+            
+            <!-- Loading -->
+            <div class="loading" id="backtest-loading">
+                <div class="spinner"></div>
+                <p id="backtest-loading-text">正在運行回測，請稍候...</p>
+            </div>
+            
+            <!-- Backtest Results -->
+            <div id="backtest-results" style="display: none;">
+                <div class="chart-container">
+                    <h4 id="backtest-performance-title">策略表現</h4>
+                    <canvas id="backtest-chart"></canvas>
+                </div>
+                
+                <div class="screening-controls">
+                    <div class="control-group">
+                        <h3 id="performance-metrics-title">績效指標</h3>
+                        <div id="performance-metrics">
+                            <!-- Performance metrics will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Trading Section -->
+        <div class="content-section" id="trading-section">
+            <h2 id="trading-title">交易決策系統</h2>
+            <p id="trading-desc">基於分析結果制定具體的交易計劃</p>
+            
+            <div class="control-group">
+                <h3 id="selected-stocks-title">已選股票</h3>
+                <div id="selected-stocks-list">
+                    <!-- Selected stocks will be shown here -->
+                </div>
+            </div>
+            
+            <button class="btn-primary" onclick="generateTradingPlan()" id="generate-plan-btn">
+                <i class="fas fa-calculator"></i> 生成交易計劃
+            </button>
+            
+            <!-- Trading Plan Results -->
+            <div id="trading-plan-results" style="display: none;">
+                <div class="chart-container">
+                    <h4 id="risk-analysis-title">風險分析</h4>
+                    <canvas id="risk-chart"></canvas>
+                </div>
+                
+                <div class="results-container">
+                    <h3 id="trading-plan-title">交易計劃</h3>
+                    <table class="results-table" id="trading-plan-table">
+                        <thead>
+                            <tr>
+                                <th id="th-trading-symbol">股票</th>
+                                <th id="th-entry-price">入場價</th>
+                                <th id="th-target-price">目標價</th>
+                                <th id="th-stop-loss">停損價</th>
+                                <th id="th-position-size">倉位大小</th>
+                                <th id="th-risk-reward">風險回報比</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trading-plan-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="js/config.js"></script>
+    <script src="js/translations.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html> 

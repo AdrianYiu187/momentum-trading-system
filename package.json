@@ -1,0 +1,56 @@
+{
+  "name": "momentum-trading-system",
+  "version": "1.0.0",
+  "description": "A professional momentum trading strategy system with stock screening, technical analysis, backtesting, and trading plan generation",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx http-server -p 3000 -o",
+    "build": "echo 'No build process needed for static site'",
+    "deploy": "vercel --prod",
+    "test": "echo 'Tests not implemented yet'",
+    "lint": "echo 'Linting not configured'",
+    "preview": "npx http-server -p 8080 -o"
+  },
+  "keywords": [
+    "momentum trading",
+    "stock analysis",
+    "technical analysis",
+    "backtesting",
+    "trading system",
+    "stock screening",
+    "financial dashboard",
+    "investment tools"
+  ],
+  "author": {
+    "name": "Momentum Trading System",
+    "email": "info@momentum-trading.com"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/momentum-trading/system.git"
+  },
+  "homepage": "https://momentum-trading-system.vercel.app",
+  "dependencies": {},
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not dead",
+    "not ie 11"
+  ],
+  "files": [
+    "index.html",
+    "styles/",
+    "js/",
+    "api/",
+    "assets/",
+    "README.md"
+  ]
+} 
