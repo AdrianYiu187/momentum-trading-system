@@ -10,23 +10,39 @@ class APIManager {
     // Test API connections
     async testConnections() {
         try {
+            console.log('Testing API connections...');
+            
             const tests = await Promise.allSettled([
                 this.testAlphaVantage(),
-                this.testYahooFinance()
+                this.testTushareAPI(),
+                this.testNewsAPI()
             ]);
+            
+            const alphaVantageOK = tests[0].status === 'fulfilled';
+            const tushareOK = tests[1].status === 'fulfilled';
+            const newsOK = tests[2].status === 'fulfilled';
             
             const successful = tests.filter(result => result.status === 'fulfilled').length;
             this.isConnected = successful > 0;
             
+            console.log('API Test Results:', {
+                alphaVantage: alphaVantageOK,
+                tushare: tushareOK,
+                news: newsOK,
+                totalConnected: successful
+            });
+            
             return {
                 connected: this.isConnected,
-                alphaVantage: tests[0].status === 'fulfilled',
-                yahoo: tests[1].status === 'fulfilled'
+                alphaVantage: alphaVantageOK,
+                tushare: tushareOK,
+                news: newsOK,
+                connectedCount: successful
             };
         } catch (error) {
             console.error('API connection test failed:', error);
             this.isConnected = false;
-            return { connected: false };
+            return { connected: false, error: error.message };
         }
     }
     
@@ -34,145 +50,388 @@ class APIManager {
     async testAlphaVantage() {
         const url = `${API_CONFIG.alphaVantage.baseUrl}?function=GLOBAL_QUOTE&symbol=AAPL&apikey=${API_CONFIG.alphaVantage.apiKey}`;
         
+        console.log('Testing Alpha Vantage API...');
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Alpha Vantage API failed');
+        
+        if (!response.ok) {
+            throw new Error(`Alpha Vantage API HTTP ${response.status}`);
+        }
         
         const data = await response.json();
-        if (data['Error Message']) throw new Error(data['Error Message']);
-        if (data['Note']) throw new Error('API rate limited');
         
+        if (data['Error Message']) {
+            throw new Error(`Alpha Vantage: ${data['Error Message']}`);
+        }
+        if (data['Note']) {
+            throw new Error('Alpha Vantage API rate limited');
+        }
+        if (data['Information']) {
+            throw new Error('Alpha Vantage API rate limited');
+        }
+        
+        console.log('Alpha Vantage API test successful');
         return data;
     }
     
-    // Test Yahoo Finance API (using a proxy or alternative)  
-    async testYahooFinance() {
-        // Using a CORS proxy for demo purposes
-        // In production, you should use your own backend proxy
-        const proxyUrl = 'https://api.allorigins.win/raw?url=';
-        const targetUrl = `${API_CONFIG.yahooFinance.baseUrl}/AAPL`;
-        
+    // Test Tushare API (通過代理)
+    async testTushareAPI() {
         try {
-            const response = await fetch(proxyUrl + encodeURIComponent(targetUrl));
-            if (!response.ok) throw new Error('Yahoo Finance API failed');
+            console.log('Testing Tushare API...');
+            const response = await fetch('/api/stocks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'test',
+                    api: 'tushare'
+                })
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Tushare API HTTP ${response.status}`);
+            }
             
             const data = await response.json();
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            console.log('Tushare API test successful');
             return data;
         } catch (error) {
-            // Fallback: assume connection works
-            console.warn('Yahoo Finance test failed, assuming connection:', error);
-            return { chart: { result: [{}] } };
+            console.warn('Tushare API test failed:', error.message);
+            throw error;
         }
     }
     
-    // Get stock quote
+    // Test News API
+    async testNewsAPI() {
+        try {
+            console.log('Testing News API...');
+            const url = `${API_CONFIG.newsAPI.baseUrl}/everything?q=stock&pageSize=1&apiKey=${API_CONFIG.newsAPI.apiKey}`;
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`News API HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            if (data.status === 'error') {
+                throw new Error(`News API: ${data.message}`);
+            }
+            
+            console.log('News API test successful');
+            return data;
+        } catch (error) {
+            console.warn('News API test failed:', error.message);
+            throw error;
+        }
+    }
+    
+    // Get stock quote - 優先使用真實API
     async getStockQuote(symbol) {
         const cacheKey = `quote_${symbol}`;
         const cached = this.getFromCache(cacheKey);
         if (cached) return cached;
         
+        console.log(`Fetching quote for ${symbol}...`);
+        
         try {
-            // Try Alpha Vantage first
+            // 首先嘗試Alpha Vantage API
             const data = await this.getAlphaVantageQuote(symbol);
             this.setCache(cacheKey, data);
+            console.log(`Successfully fetched ${symbol} quote from Alpha Vantage`);
             return data;
         } catch (error) {
-            console.error('Failed to get stock quote:', error);
-            // Return mock data for demo
-            return this.getMockQuote(symbol);
+            console.warn(`Alpha Vantage failed for ${symbol}:`, error.message);
+            
+            try {
+                // 嘗試通過代理服務器獲取數據
+                console.log(`Trying proxy API for ${symbol}...`);
+                const proxyData = await this.getProxyQuote(symbol);
+                this.setCache(cacheKey, proxyData);
+                console.log(`Successfully fetched ${symbol} quote from proxy`);
+                return proxyData;
+            } catch (proxyError) {
+                console.warn(`Proxy API also failed for ${symbol}:`, proxyError.message);
+                
+                // 最後回退到Mock數據，但要標記數據來源
+                console.log(`Using mock data for ${symbol} (APIs unavailable)`);
+                const mockData = this.getMockQuote(symbol);
+                mockData._source = 'mock';
+                mockData._reason = 'API unavailable';
+                return mockData;
+            }
         }
     }
     
-    // Get stock historical data
+    // 通過代理服務器獲取報價
+    async getProxyQuote(symbol) {
+        const response = await fetch('/api/stocks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'quote',
+                symbol: symbol
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Proxy API HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        return data.data;
+    }
+    
+    // Get stock historical data - 優先使用真實API
     async getStockHistory(symbol, period = '1Y') {
         const cacheKey = `history_${symbol}_${period}`;
         const cached = this.getFromCache(cacheKey);
         if (cached) return cached;
         
+        console.log(`Fetching history for ${symbol} (${period})...`);
+        
         try {
+            // 首先嘗試Alpha Vantage API
             const data = await this.getAlphaVantageHistory(symbol, period);
             this.setCache(cacheKey, data);
+            console.log(`Successfully fetched ${symbol} history from Alpha Vantage`);
             return data;
         } catch (error) {
-            console.error('Failed to get stock history:', error);
-            // Return mock data for demo
-            return MockDataGenerator.generatePriceData(this.getPeriodDays(period));
+            console.warn(`Alpha Vantage history failed for ${symbol}:`, error.message);
+            
+            try {
+                // 嘗試通過代理服務器獲取數據
+                const proxyData = await this.getProxyHistory(symbol, period);
+                this.setCache(cacheKey, proxyData);
+                console.log(`Successfully fetched ${symbol} history from proxy`);
+                return proxyData;
+            } catch (proxyError) {
+                console.warn(`Proxy history also failed for ${symbol}:`, proxyError.message);
+                
+                // 最後回退到Mock數據
+                console.log(`Using mock history for ${symbol} (APIs unavailable)`);
+                const mockData = MockDataGenerator.generatePriceData(this.getPeriodDays(period));
+                mockData._source = 'mock';
+                mockData._reason = 'API unavailable';
+                return mockData;
+            }
         }
     }
     
-    // Screen stocks based on criteria
+    // 通過代理服務器獲取歷史數據
+    async getProxyHistory(symbol, period) {
+        const response = await fetch('/api/stocks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'history',
+                symbol: symbol,
+                period: period
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Proxy API HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        return data.data;
+    }
+    
+    // Screen stocks based on criteria - 優先使用真實API
     async screenStocks(criteria) {
         const cacheKey = `screen_${JSON.stringify(criteria)}`;
         const cached = this.getFromCache(cacheKey);
         if (cached) return cached;
         
+        console.log('Screening stocks with criteria:', criteria);
+        
         try {
-            // In a real implementation, this would call multiple APIs
-            // For demo, we'll return mock data
-            const results = await this.getMockScreeningResults(criteria);
-            this.setCache(cacheKey, results);
-            return results;
+            // 嘗試通過代理服務器進行股票篩選
+            const data = await this.getProxyScreening(criteria);
+            this.setCache(cacheKey, data);
+            console.log('Successfully screened stocks from API');
+            return data;
         } catch (error) {
-            console.error('Screening failed:', error);
-            throw error;
+            console.warn('API screening failed:', error.message);
+            
+            // 回退到增強的Mock數據
+            console.log('Using enhanced mock screening data');
+            const mockData = await this.getMockScreeningResults(criteria);
+            mockData._source = 'mock';
+            mockData._reason = 'API unavailable';
+            return mockData;
         }
     }
     
-    // Get technical indicators
+    // 通過代理服務器進行股票篩選
+    async getProxyScreening(criteria) {
+        const response = await fetch('/api/stocks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'screen',
+                criteria: criteria
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Proxy API HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        return data.data;
+    }
+    
+    // Get technical indicators - 優先使用真實API
     async getTechnicalIndicators(symbol, indicators = ['RSI', 'MACD']) {
         const cacheKey = `indicators_${symbol}_${indicators.join('_')}`;
         const cached = this.getFromCache(cacheKey);
         if (cached) return cached;
         
+        console.log(`Fetching technical indicators for ${symbol}:`, indicators);
+        
         try {
-            const data = {};
-            
-            // Get data for each indicator
-            for (const indicator of indicators) {
-                switch (indicator) {
-                    case 'RSI':
-                        data.rsi = await this.getRSI(symbol);
-                        break;
-                    case 'MACD':
-                        data.macd = await getMACD(symbol);
-                        break;
-                    default:
-                        console.warn(`Unknown indicator: ${indicator}`);
-                }
-            }
-            
+            // 嘗試通過代理服務器獲取技術指標
+            const data = await this.getProxyIndicators(symbol, indicators);
             this.setCache(cacheKey, data);
+            console.log(`Successfully fetched ${symbol} indicators from API`);
             return data;
         } catch (error) {
-            console.error('Failed to get technical indicators:', error);
-            // Return mock data
-            return {
+            console.warn(`API indicators failed for ${symbol}:`, error.message);
+            
+            // 回退到Mock數據
+            console.log(`Using mock indicators for ${symbol} (API unavailable)`);
+            const mockData = {
                 rsi: MockDataGenerator.generateRSIData(),
                 macd: MockDataGenerator.generateMACDData(),
-                labels: this.generateDateLabels(90)
+                labels: this.generateDateLabels(90),
+                _source: 'mock',
+                _reason: 'API unavailable'
             };
+            
+            return mockData;
         }
     }
     
-    // Get news and catalysts
+    // 通過代理服務器獲取技術指標
+    async getProxyIndicators(symbol, indicators) {
+        const response = await fetch('/api/stocks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'indicators',
+                symbol: symbol,
+                indicators: indicators
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Proxy API HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        return data.data;
+    }
+    
+    // Get news and catalysts - 優先使用真實API
     async getStockNews(symbol, limit = 10) {
         const cacheKey = `news_${symbol}_${limit}`;
         const cached = this.getFromCache(cacheKey);
         if (cached) return cached;
         
+        console.log(`Fetching news for ${symbol}...`);
+        
         try {
+            // 首先嘗試News API
             const url = `${API_CONFIG.newsAPI.baseUrl}/everything?q=${symbol}&sortBy=publishedAt&pageSize=${limit}&apiKey=${API_CONFIG.newsAPI.apiKey}`;
             
             const response = await fetch(url);
-            if (!response.ok) throw new Error('News API failed');
+            if (!response.ok) {
+                throw new Error(`News API HTTP ${response.status}`);
+            }
             
             const data = await response.json();
+            if (data.status === 'error') {
+                throw new Error(`News API: ${data.message}`);
+            }
+            
+            console.log(`Successfully fetched ${symbol} news from News API`);
             this.setCache(cacheKey, data.articles);
             return data.articles;
         } catch (error) {
-            console.error('Failed to get news:', error);
-            // Return mock news
-            return this.getMockNews(symbol);
+            console.warn(`News API failed for ${symbol}:`, error.message);
+            
+            try {
+                // 嘗試通過代理服務器獲取新聞
+                const proxyData = await this.getProxyNews(symbol, limit);
+                this.setCache(cacheKey, proxyData);
+                console.log(`Successfully fetched ${symbol} news from proxy`);
+                return proxyData;
+            } catch (proxyError) {
+                console.warn(`Proxy news also failed for ${symbol}:`, proxyError.message);
+                
+                // 回退到Mock新聞
+                console.log(`Using mock news for ${symbol} (APIs unavailable)`);
+                const mockNews = this.getMockNews(symbol);
+                mockNews._source = 'mock';
+                mockNews._reason = 'API unavailable';
+                return mockNews;
+            }
         }
+    }
+    
+    // 通過代理服務器獲取新聞
+    async getProxyNews(symbol, limit) {
+        const response = await fetch('/api/stocks', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                action: 'news',
+                symbol: symbol,
+                limit: limit
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Proxy API HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+        
+        return data.data;
     }
     
     // Alpha Vantage API calls
@@ -325,9 +584,9 @@ class APIManager {
             { symbol: '600036.SH', name: '招商銀行', market: 'CN', sector: 'Financial', marketCap: 900 },
             { symbol: '600519.SH', name: '貴州茅台', market: 'CN', sector: 'Consumer Staples', marketCap: 2800 },
             { symbol: '600887.SH', name: '伊利股份', market: 'CN', sector: 'Consumer Staples', marketCap: 220 },
-            { symbol: '000858.SZ', name: '五糧液', market: 'CN', sector: 'Consumer Staples', marketCap: 800 },
             { symbol: '002415.SZ', name: '海康威視', market: 'CN', sector: 'Technology', marketCap: 400 },
-            { symbol: '300750.SZ', name: '寧德時代', market: 'CN', sector: 'Technology', marketCap: 1200 }
+            { symbol: '300750.SZ', name: '寧德時代', market: 'CN', sector: 'Technology', marketCap: 1200 },
+            { symbol: '002594.SZ', name: '比亞迪', market: 'CN', sector: 'Automotive', marketCap: 1100 }
         ];
         
         return mockStocks.map(stock => {
@@ -559,6 +818,51 @@ class APIManager {
         limit.count++;
         return true;
     }
+
+    // Perform backtest - 優先使用真實數據
+    async performBacktest(symbol, strategy = 'momentum', period = '1Y') {
+        const cacheKey = `backtest_${symbol}_${strategy}_${period}`;
+        const cached = this.getFromCache(cacheKey);
+        if (cached) return cached;
+        
+        console.log(`Running backtest for ${symbol} with ${strategy} strategy...`);
+        
+        try {
+            // 獲取真實歷史數據進行回測
+            const historicalData = await this.getStockHistory(symbol, period);
+            
+            // 使用BacktestEngine進行回測
+            const backtestResult = backtestEngine.runBacktest(historicalData, strategy);
+            backtestResult.symbol = symbol;
+            backtestResult.strategy = strategy;
+            backtestResult.period = period;
+            backtestResult._source = historicalData._source || 'api';
+            
+            console.log(`Successfully completed backtest for ${symbol}`);
+            this.setCache(cacheKey, backtestResult);
+            return backtestResult;
+        } catch (error) {
+            console.warn(`Backtest failed for ${symbol}:`, error.message);
+            
+            // 使用Mock數據進行回測
+            console.log(`Using mock backtest for ${symbol} (data unavailable)`);
+            const mockResult = {
+                symbol: symbol,
+                strategy: strategy,
+                period: period,
+                totalReturn: (Math.random() - 0.5) * 50, // -25% to +25%
+                sharpeRatio: 0.5 + Math.random() * 1.5, // 0.5 to 2.0
+                maxDrawdown: -(Math.random() * 20), // 0% to -20%
+                winRate: 50 + (Math.random() - 0.5) * 20, // 40% to 60%
+                totalTrades: Math.floor(20 + Math.random() * 80), // 20 to 100
+                equity: MockDataGenerator.generateBacktestData(252),
+                _source: 'mock',
+                _reason: 'API unavailable'
+            };
+            
+            return mockResult;
+        }
+    }
 }
 
 // Backtesting Engine
@@ -567,19 +871,16 @@ class BacktestEngine {
         this.results = null;
     }
     
-    async runBacktest(symbol, period, strategy) {
+    async runBacktest(data, strategy) {
         try {
-            // Get historical data
-            const historyData = await apiManager.getStockHistory(symbol, period);
-            
             // Calculate strategy signals
-            const signals = this.calculateSignals(historyData, strategy);
+            const signals = this.calculateSignals(data.prices, strategy);
             
             // Simulate trades
-            const trades = this.simulateTrades(historyData, signals);
+            const trades = this.simulateTrades(data, signals);
             
             // Calculate performance metrics
-            const metrics = this.calculateMetrics(trades, historyData);
+            const metrics = this.calculateMetrics(trades, data);
             
             this.results = {
                 trades: trades,
@@ -596,9 +897,8 @@ class BacktestEngine {
         }
     }
     
-    calculateSignals(data, strategy) {
+    calculateSignals(prices, strategy) {
         const signals = [];
-        const prices = data.prices;
         
         // Calculate moving averages
         const maShort = this.calculateMA(prices, strategy.maShort);

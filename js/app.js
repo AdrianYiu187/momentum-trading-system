@@ -23,7 +23,7 @@ class MomentumTradingApp {
             // Test API connections
             this.showLoading('Initializing APIs...');
             const apiStatus = await apiManager.testConnections();
-            this.updateAPIStatus(apiStatus.connected);
+            this.updateAPIStatus(apiStatus.connected, apiStatus);
             
             // Initialize UI
             this.initializeUI();
@@ -221,10 +221,16 @@ class MomentumTradingApp {
         
         tbody.innerHTML = '';
         
+        // Add data source warning if using mock data
+        this.showDataSourceWarning(results);
+        
         results.forEach(stock => {
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${stock.symbol}</td>
+                <td>
+                    ${stock.symbol}
+                    ${this.getDataSourceBadge(stock)}
+                </td>
                 <td>${stock.name}</td>
                 <td>${this.getMarketName(stock.market)}</td>
                 <td>${this.formatCurrency(stock.price, this.getMarketCurrency(stock.market))}</td>
@@ -610,19 +616,51 @@ class MomentumTradingApp {
         }
     }
     
-    updateAPIStatus(connected) {
+    // Update API status display with detailed information
+    updateAPIStatus(connected, details = {}) {
         const statusElement = document.getElementById('api-status');
-        const statusText = document.getElementById('api-status-text');
+        const statusText = statusElement?.querySelector('.status-text');
         
-        if (statusElement && statusText) {
-            if (connected) {
-                statusElement.className = 'api-status connected';
-                statusText.textContent = i18n.t('api-status-connected', 'API Connected');
+        if (!statusElement || !statusText) return;
+        
+        if (connected) {
+            statusElement.className = 'api-status connected';
+            
+            // Show detailed API status
+            let statusMessage = i18n.t('api-status-connected', 'API Connected');
+            if (details.connectedCount) {
+                statusMessage += ` (${details.connectedCount}/3)`;
+            }
+            
+            statusText.textContent = statusMessage;
+            
+            // Add detailed tooltip
+            statusElement.title = this.buildAPIStatusTooltip(details);
+        } else {
+            statusElement.className = 'api-status disconnected';
+            statusText.textContent = i18n.t('api-status-disconnected', 'API Disconnected');
+            
+            if (details.error) {
+                statusElement.title = `錯誤: ${details.error}`;
             } else {
-                statusElement.className = 'api-status disconnected';
-                statusText.textContent = i18n.t('api-status-disconnected', 'API Disconnected');
+                statusElement.title = '所有API連接失敗，將使用模擬數據';
             }
         }
+    }
+    
+    // Build detailed API status tooltip
+    buildAPIStatusTooltip(details) {
+        const status = [];
+        if (details.alphaVantage !== undefined) {
+            status.push(`Alpha Vantage: ${details.alphaVantage ? '✓' : '✗'}`);
+        }
+        if (details.tushare !== undefined) {
+            status.push(`Tushare: ${details.tushare ? '✓' : '✗'}`);
+        }
+        if (details.news !== undefined) {
+            status.push(`News API: ${details.news ? '✓' : '✗'}`);
+        }
+        return status.join('\n');
     }
     
     // Reset filters to default values
@@ -720,6 +758,305 @@ class MomentumTradingApp {
                 chart.update();
             }
         });
+    }
+    
+    // Display screening results with data source information
+    displayScreeningResults(results) {
+        const tbody = document.getElementById('results-tbody');
+        const resultsContainer = document.getElementById('screening-results');
+        
+        if (!tbody || !resultsContainer) return;
+        
+        tbody.innerHTML = '';
+        
+        // Add data source warning if using mock data
+        this.showDataSourceWarning(results);
+        
+        results.forEach(stock => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>
+                    ${stock.symbol}
+                    ${this.getDataSourceBadge(stock)}
+                </td>
+                <td>${stock.name}</td>
+                <td>${this.getMarketName(stock.market)}</td>
+                <td>${this.formatCurrency(stock.price, this.getMarketCurrency(stock.market))}</td>
+                <td class="${stock.change >= 0 ? 'status-positive' : 'status-negative'}">
+                    ${stock.change >= 0 ? '+' : ''}${stock.change.toFixed(1)}%
+                </td>
+                <td>${stock.volumeRatio.toFixed(1)}x</td>
+                <td class="${this.getRSIClass(stock.rsi)}">${stock.rsi.toFixed(0)}</td>
+                <td><strong>${stock.score}</strong></td>
+                <td>
+                    <button class="btn-secondary" onclick="app.selectStock('${stock.symbol}')" style="padding: 5px 10px; font-size: 12px;">
+                        <i class="fas fa-plus"></i> ${i18n.t('select-stock', '選擇')}
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(row);
+        });
+        
+        resultsContainer.style.display = 'block';
+        
+        // Update results count
+        const resultsTitle = document.getElementById('results-title');
+        if (resultsTitle) {
+            resultsTitle.textContent = `${i18n.t('results-title', '篩選結果')} (${results.length})`;
+        }
+    }
+    
+    // Show data source warning
+    showDataSourceWarning(data) {
+        const warningContainer = document.getElementById('data-source-warning');
+        
+        if (data._source === 'mock') {
+            if (!warningContainer) {
+                // Create warning container if it doesn't exist
+                const warning = document.createElement('div');
+                warning.id = 'data-source-warning';
+                warning.className = 'alert alert-warning';
+                warning.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>數據來源提醒：</strong> 
+                    當前顯示的是模擬數據，原因：${data._reason || 'API不可用'}。
+                    模擬數據僅供演示，請勿用於實際投資決策。
+                `;
+                
+                const resultsContainer = document.getElementById('screening-results');
+                if (resultsContainer) {
+                    resultsContainer.insertBefore(warning, resultsContainer.firstChild);
+                }
+            } else {
+                warningContainer.style.display = 'block';
+            }
+        } else if (warningContainer) {
+            warningContainer.style.display = 'none';
+        }
+    }
+    
+    // Get data source badge
+    getDataSourceBadge(data) {
+        if (data._source === 'mock') {
+            return '<span class="badge badge-warning" title="模擬數據">Mock</span>';
+        } else if (data._source === 'api') {
+            return '<span class="badge badge-success" title="真實API數據">Real</span>';
+        }
+        return '';
+    }
+    
+    // Display analysis results with data source information
+    async displayAnalysisResults(data) {
+        const { quote, history, indicators, news } = data;
+        
+        // Show data source warnings
+        this.showDataSourceWarning(quote);
+        if (history._source === 'mock') this.showDataSourceWarning(history);
+        if (indicators._source === 'mock') this.showDataSourceWarning(indicators);
+        
+        // Update stock info with data quality indicators
+        const stockInfo = document.getElementById('stock-info');
+        if (stockInfo && quote) {
+            stockInfo.innerHTML = `
+                <div class="stock-header">
+                    <h3>
+                        ${quote.symbol} 
+                        ${this.getDataSourceBadge(quote)}
+                    </h3>
+                    <div class="stock-price">
+                        <span class="price">${this.formatCurrency(quote.price)}</span>
+                        <span class="change ${quote.changePercent >= 0 ? 'positive' : 'negative'}">
+                            ${quote.changePercent >= 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%
+                        </span>
+                    </div>
+                </div>
+                <div class="stock-details">
+                    <div class="detail-item">
+                        <span class="label">成交量:</span>
+                        <span class="value">${this.formatNumber(quote.volume)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">最高:</span>
+                        <span class="value">${this.formatCurrency(quote.high)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">最低:</span>
+                        <span class="value">${this.formatCurrency(quote.low)}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">數據質量:</span>
+                        <span class="value ${quote._source === 'mock' ? 'warning' : 'success'}">
+                            ${quote._source === 'mock' ? '模擬數據' : '真實數據'}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Create charts with data source information
+        if (history && history.labels && history.prices) {
+            chartManager.createPriceChart({
+                labels: history.labels,
+                prices: history.prices,
+                _source: history._source
+            });
+            
+            // Only create volume chart if we have volume data
+            if (history.volumes && history.volumes.length > 0) {
+                chartManager.createVolumeChart({
+                    labels: history.labels,
+                    volumes: history.volumes,
+                    _source: history._source
+                });
+            } else {
+                // Show message about missing volume data
+                const volumeContainer = document.getElementById('volume-chart');
+                if (volumeContainer) {
+                    volumeContainer.innerHTML = `
+                        <div class="no-data-message">
+                            <i class="fas fa-info-circle"></i>
+                            <p>成交量數據不可用</p>
+                            <small>API暫時無法提供成交量數據</small>
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        if (indicators) {
+            chartManager.createIndicatorsChart(indicators);
+        }
+        
+        if (news && news.length > 0) {
+            this.displayCatalysts(news);
+        }
+        
+        document.getElementById('analysis-results').style.display = 'block';
+    }
+    
+    // Display backtest results with data source information
+    displayBacktestResults(data) {
+        // Show data source warning
+        this.showDataSourceWarning(data);
+        
+        const metricsContainer = document.getElementById('backtest-metrics');
+        const chartContainer = document.getElementById('backtest-chart');
+        
+        if (metricsContainer) {
+            metricsContainer.innerHTML = `
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-label">總回報率</div>
+                        <div class="metric-value ${data.totalReturn >= 0 ? 'positive' : 'negative'}">
+                            ${data.totalReturn.toFixed(2)}%
+                        </div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">夏普比率</div>
+                        <div class="metric-value">${data.sharpeRatio.toFixed(2)}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">最大回撤</div>
+                        <div class="metric-value negative">${data.maxDrawdown.toFixed(2)}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">勝率</div>
+                        <div class="metric-value">${data.winRate.toFixed(1)}%</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">交易次數</div>
+                        <div class="metric-value">${data.totalTrades}</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">數據來源</div>
+                        <div class="metric-value ${data._source === 'mock' ? 'warning' : 'success'}">
+                            ${data._source === 'mock' ? '模擬數據' : '真實數據'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (chartContainer && data.equity) {
+            chartManager.createBacktestChart(data);
+        }
+        
+        document.getElementById('backtest-results').style.display = 'block';
+    }
+    
+    // Display trading plans with data source information
+    displayTradingPlan(plans) {
+        const container = document.getElementById('trading-plan-results');
+        if (!container) return;
+        
+        let html = '<div class="trading-plans">';
+        
+        plans.forEach(plan => {
+            const signalClass = plan.signal.toLowerCase();
+            const dataQualityClass = plan._dataQuality === 'simulated' ? 'warning' : 'success';
+            
+            html += `
+                <div class="trading-plan-card">
+                    <div class="plan-header">
+                        <h4>
+                            ${plan.symbol} 
+                            <span class="badge badge-${dataQualityClass}">
+                                ${plan._dataQuality === 'simulated' ? '模擬' : '真實'}
+                            </span>
+                        </h4>
+                        <div class="signal-badge signal-${signalClass}">
+                            ${plan.signal}
+                        </div>
+                    </div>
+                    
+                    <div class="plan-details">
+                        <div class="detail-row">
+                            <span class="label">當前價格:</span>
+                            <span class="value">${this.formatCurrency(plan.currentPrice)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">目標價格:</span>
+                            <span class="value">${this.formatCurrency(plan.targetPrice)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">止損價格:</span>
+                            <span class="value">${this.formatCurrency(plan.stopLoss)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">風險回報比:</span>
+                            <span class="value">${plan.riskReward.toFixed(2)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">信心度:</span>
+                            <span class="value">${plan.confidence}%</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">建議持倉:</span>
+                            <span class="value">${plan.position}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">時間框架:</span>
+                            <span class="value">${plan.timeframe}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        
+        // Add overall data quality warning
+        if (plans.some(plan => plan._dataQuality === 'simulated')) {
+            html = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>數據質量提醒：</strong> 部分交易計劃基於模擬數據生成，請謹慎參考。
+                </div>
+            ` + html;
+        }
+        
+        container.innerHTML = html;
+        container.style.display = 'block';
     }
     
     // Cleanup resources
