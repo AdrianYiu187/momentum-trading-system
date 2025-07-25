@@ -1,0 +1,23 @@
+# 動能交易系統 - GitHub 推送命令
+
+## 使用個人訪問令牌推送：
+git remote set-url origin https://AdrianYiu187:[您的個人令牌]@github.com/AdrianYiu187/momentum-trading-system.git
+git push -u origin main
+
+## 如果是全新倉庫，可能需要強制推送：
+git push -u origin main --force
+
+## 驗證推送成功：
+git remote -v
+git log --oneline -3
+
+## 部署到生產環境：
+# 推送成功後，可直接部署到：
+# - Vercel: https://vercel.com/new
+# - Netlify: https://app.netlify.com/start
+# - GitHub Pages: 在倉庫設置中啟用
+
+## 測試URL將會是：
+# - GitHub Pages: https://adrianyiu187.github.io/momentum-trading-system/
+# - Vercel: https://momentum-trading-system-[隨機字符串].vercel.app/
+# - Netlify: https://[隨機名稱].netlify.app/ 
