@@ -291,22 +291,50 @@ class APIManager {
         // Simulate API delay
         await new Promise(resolve => setTimeout(resolve, 2000));
         
+        // 擴展Mock股票數據庫
         const mockStocks = [
-            { symbol: 'AAPL', name: 'Apple Inc.', market: 'US' },
-            { symbol: 'MSFT', name: 'Microsoft Corp.', market: 'US' },
-            { symbol: 'GOOGL', name: 'Alphabet Inc.', market: 'US' },
-            { symbol: 'TSLA', name: 'Tesla Inc.', market: 'US' },
-            { symbol: '0700.HK', name: 'Tencent Holdings', market: 'HK' },
-            { symbol: '0941.HK', name: 'China Mobile', market: 'HK' },
-            { symbol: '000001.SZ', name: '平安银行', market: 'CN' },
-            { symbol: '000002.SZ', name: '万科A', market: 'CN' }
+            // 美股
+            { symbol: 'AAPL', name: 'Apple Inc.', market: 'US', sector: 'Technology', marketCap: 3000 },
+            { symbol: 'MSFT', name: 'Microsoft Corp.', market: 'US', sector: 'Technology', marketCap: 2800 },
+            { symbol: 'GOOGL', name: 'Alphabet Inc.', market: 'US', sector: 'Technology', marketCap: 1800 },
+            { symbol: 'TSLA', name: 'Tesla Inc.', market: 'US', sector: 'Automotive', marketCap: 800 },
+            { symbol: 'NVDA', name: 'NVIDIA Corp.', market: 'US', sector: 'Technology', marketCap: 1200 },
+            { symbol: 'AMZN', name: 'Amazon.com Inc.', market: 'US', sector: 'Consumer Discretionary', marketCap: 1500 },
+            { symbol: 'META', name: 'Meta Platforms Inc.', market: 'US', sector: 'Technology', marketCap: 900 },
+            { symbol: 'JPM', name: 'JPMorgan Chase & Co.', market: 'US', sector: 'Financial', marketCap: 600 },
+            { symbol: 'V', name: 'Visa Inc.', market: 'US', sector: 'Financial', marketCap: 500 },
+            { symbol: 'UNH', name: 'UnitedHealth Group Inc.', market: 'US', sector: 'Healthcare', marketCap: 550 },
+            
+            // 港股
+            { symbol: '0700.HK', name: '騰訊控股', market: 'HK', sector: 'Technology', marketCap: 4200 },
+            { symbol: '0941.HK', name: '中國移動', market: 'HK', sector: 'Telecommunications', marketCap: 1800 },
+            { symbol: '0005.HK', name: '匯豐控股', market: 'HK', sector: 'Financial', marketCap: 1200 },
+            { symbol: '1299.HK', name: '友邦保險', market: 'HK', sector: 'Financial', marketCap: 900 },
+            { symbol: '1398.HK', name: '工商銀行', market: 'HK', sector: 'Financial', marketCap: 2100 },
+            { symbol: '2318.HK', name: '中國平安', market: 'HK', sector: 'Financial', marketCap: 1100 },
+            { symbol: '3690.HK', name: '美團-W', market: 'HK', sector: 'Consumer Discretionary', marketCap: 1000 },
+            { symbol: '9988.HK', name: '阿里巴巴-SW', market: 'HK', sector: 'Technology', marketCap: 2200 },
+            { symbol: '2020.HK', name: '安踏體育', market: 'HK', sector: 'Consumer Discretionary', marketCap: 300 },
+            { symbol: '1810.HK', name: '小米集團-W', market: 'HK', sector: 'Technology', marketCap: 400 },
+            
+            // A股
+            { symbol: '000001.SZ', name: '平安銀行', market: 'CN', sector: 'Financial', marketCap: 350 },
+            { symbol: '000002.SZ', name: '萬科A', market: 'CN', sector: 'Real Estate', marketCap: 280 },
+            { symbol: '000858.SZ', name: '五糧液', market: 'CN', sector: 'Consumer Staples', marketCap: 800 },
+            { symbol: '300059.SZ', name: '東方財富', market: 'CN', sector: 'Financial', marketCap: 450 },
+            { symbol: '600036.SH', name: '招商銀行', market: 'CN', sector: 'Financial', marketCap: 900 },
+            { symbol: '600519.SH', name: '貴州茅台', market: 'CN', sector: 'Consumer Staples', marketCap: 2800 },
+            { symbol: '600887.SH', name: '伊利股份', market: 'CN', sector: 'Consumer Staples', marketCap: 220 },
+            { symbol: '000858.SZ', name: '五糧液', market: 'CN', sector: 'Consumer Staples', marketCap: 800 },
+            { symbol: '002415.SZ', name: '海康威視', market: 'CN', sector: 'Technology', marketCap: 400 },
+            { symbol: '300750.SZ', name: '寧德時代', market: 'CN', sector: 'Technology', marketCap: 1200 }
         ];
         
         return mockStocks.map(stock => {
-            const quote = this.getMockQuote(stock.symbol);
-            const rsi = 30 + Math.random() * 40; // 30-70 range
-            const volumeRatio = 1 + Math.random() * 2; // 1-3 range
-            const score = Math.floor(60 + Math.random() * 40); // 60-100 range
+            const quote = this.getEnhancedMockQuote(stock.symbol, stock.sector);
+            const rsi = this.generateRealisticRSI();
+            const volumeRatio = this.generateRealisticVolumeRatio();
+            const score = this.calculateMomentumScore(quote.changePercent, volumeRatio, rsi);
             
             return {
                 ...stock,
@@ -314,18 +342,117 @@ class APIManager {
                 change: quote.changePercent,
                 volumeRatio: volumeRatio,
                 rsi: rsi,
-                score: score
+                score: score,
+                volume: quote.volume,
+                high: quote.high,
+                low: quote.low
             };
         }).filter(stock => {
-            // Apply basic filtering based on criteria
-            if (criteria.markets && !criteria.markets.includes('all') && !criteria.markets.includes(stock.market.toLowerCase())) {
+            // 市場篩選
+            if (criteria.markets && criteria.markets.length > 0 && !criteria.markets.includes('all')) {
+                const marketMatches = criteria.markets.some(market => 
+                    market.toLowerCase() === stock.market.toLowerCase() ||
+                    (market === 'hk' && stock.market === 'HK') ||
+                    (market === 'us' && stock.market === 'US') ||
+                    (market === 'cn' && stock.market === 'CN')
+                );
+                if (!marketMatches) return false;
+            }
+            
+            // 價格變動篩選 - 修復邏輯
+            if (criteria.priceChange && Math.abs(stock.change) < criteria.priceChange) {
                 return false;
             }
-            if (Math.abs(stock.change) < criteria.priceChange) return false;
-            if (stock.volumeRatio < criteria.volumeRatio) return false;
+            
+            // 成交量倍數篩選
+            if (criteria.volumeRatio && stock.volumeRatio < criteria.volumeRatio) {
+                return false;
+            }
+            
+            // RSI範圍篩選
+            if (criteria.rsiRange && criteria.rsiRange !== 'all') {
+                const [minRsi, maxRsi] = criteria.rsiRange.split('-').map(Number);
+                if (stock.rsi < minRsi || stock.rsi > maxRsi) {
+                    return false;
+                }
+            }
+            
+            // 市值篩選
+            if (criteria.minMarketCap && stock.marketCap < criteria.minMarketCap) {
+                return false;
+            }
             
             return true;
-        });
+        }).sort((a, b) => b.score - a.score); // 按分數排序
+    }
+    
+    // 增強的Mock報價生成
+    getEnhancedMockQuote(symbol, sector) {
+        // 根據板塊設定不同的波動率
+        const sectorVolatility = {
+            'Technology': 0.08,
+            'Financial': 0.05,
+            'Healthcare': 0.04,
+            'Consumer Staples': 0.03,
+            'Consumer Discretionary': 0.06,
+            'Automotive': 0.10,
+            'Telecommunications': 0.04,
+            'Real Estate': 0.05
+        };
+        
+        const volatility = sectorVolatility[sector] || 0.05;
+        const basePrice = Math.random() * 200 + 50;
+        
+        // 生成更真實的價格變動（-8% 到 +8%）
+        const changePercent = (Math.random() - 0.5) * 16 * volatility / 0.05;
+        const change = basePrice * changePercent / 100;
+        
+        return {
+            symbol: symbol,
+            price: basePrice,
+            change: change,
+            changePercent: changePercent,
+            volume: Math.floor(Math.random() * 50000000) + 1000000,
+            high: basePrice + Math.abs(change) * 1.2,
+            low: basePrice - Math.abs(change) * 1.2,
+            open: basePrice + (Math.random() - 0.5) * Math.abs(change),
+            previousClose: basePrice - change
+        };
+    }
+    
+    // 生成真實的RSI值
+    generateRealisticRSI() {
+        // RSI通常在20-80範圍內分佈
+        const random = Math.random();
+        if (random < 0.1) return 10 + Math.random() * 20; // 10-30 (超賣)
+        if (random < 0.2) return 70 + Math.random() * 20; // 70-90 (超買)
+        return 30 + Math.random() * 40; // 30-70 (正常)
+    }
+    
+    // 生成真實的成交量倍數
+    generateRealisticVolumeRatio() {
+        const random = Math.random();
+        if (random < 0.7) return 0.5 + Math.random() * 1.5; // 0.5-2 (正常)
+        if (random < 0.9) return 2 + Math.random() * 2; // 2-4 (活躍)
+        return 4 + Math.random() * 6; // 4-10 (異常活躍)
+    }
+    
+    // 計算動能分數
+    calculateMomentumScore(changePercent, volumeRatio, rsi) {
+        let score = 50; // 基礎分數
+        
+        // 價格變動貢獻 (±30分)
+        score += Math.min(Math.max(changePercent * 3, -30), 30);
+        
+        // 成交量貢獻 (0-25分)
+        score += Math.min(volumeRatio * 5, 25);
+        
+        // RSI貢獻 (-10到+10分)
+        if (rsi < 30) score += 10; // 超賣加分
+        else if (rsi > 70) score -= 10; // 超買減分
+        else score += (50 - Math.abs(rsi - 50)) / 5; // 中性區域小幅加分
+        
+        return Math.max(0, Math.min(100, Math.round(score)));
     }
     
     getMockNews(symbol) {
