@@ -92,13 +92,13 @@ class APIManager {
                 throw new Error(`Tushare API HTTP ${response.status}`);
             }
             
-            const data = await response.json();
-            if (data.error) {
-                throw new Error(data.error);
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'Tushare API test failed');
             }
             
             console.log('Tushare API test successful');
-            return data;
+            return result;
         } catch (error) {
             console.warn('Tushare API test failed:', error.message);
             throw error;
@@ -109,20 +109,28 @@ class APIManager {
     async testNewsAPI() {
         try {
             console.log('Testing News API...');
-            const url = `${API_CONFIG.newsAPI.baseUrl}/everything?q=stock&pageSize=1&apiKey=${API_CONFIG.newsAPI.apiKey}`;
+            const response = await fetch('/api/stocks', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'test',
+                    api: 'news'
+                })
+            });
             
-            const response = await fetch(url);
             if (!response.ok) {
                 throw new Error(`News API HTTP ${response.status}`);
             }
             
-            const data = await response.json();
-            if (data.status === 'error') {
-                throw new Error(`News API: ${data.message}`);
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error || 'News API test failed');
             }
             
             console.log('News API test successful');
-            return data;
+            return result;
         } catch (error) {
             console.warn('News API test failed:', error.message);
             throw error;
@@ -183,12 +191,12 @@ class APIManager {
             throw new Error(`Proxy API HTTP ${response.status}`);
         }
         
-        const data = await response.json();
-        if (data.error) {
-            throw new Error(data.error);
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'API request failed');
         }
         
-        return data.data;
+        return result.data;
     }
     
     // Get stock historical data - 優先使用真實API
@@ -245,12 +253,12 @@ class APIManager {
             throw new Error(`Proxy API HTTP ${response.status}`);
         }
         
-        const data = await response.json();
-        if (data.error) {
-            throw new Error(data.error);
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'API request failed');
         }
         
-        return data.data;
+        return result.data;
     }
     
     // Screen stocks based on criteria - 優先使用真實API
@@ -296,12 +304,12 @@ class APIManager {
             throw new Error(`Proxy API HTTP ${response.status}`);
         }
         
-        const data = await response.json();
-        if (data.error) {
-            throw new Error(data.error);
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'API request failed');
         }
         
-        return data.data;
+        return result.data;
     }
     
     // Get technical indicators - 優先使用真實API
@@ -353,12 +361,12 @@ class APIManager {
             throw new Error(`Proxy API HTTP ${response.status}`);
         }
         
-        const data = await response.json();
-        if (data.error) {
-            throw new Error(data.error);
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'API request failed');
         }
         
-        return data.data;
+        return result.data;
     }
     
     // Get news and catalysts - 優先使用真實API
@@ -426,12 +434,12 @@ class APIManager {
             throw new Error(`Proxy API HTTP ${response.status}`);
         }
         
-        const data = await response.json();
-        if (data.error) {
-            throw new Error(data.error);
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error(result.error || 'API request failed');
         }
         
-        return data.data;
+        return result.data;
     }
     
     // Alpha Vantage API calls

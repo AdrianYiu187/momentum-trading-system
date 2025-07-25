@@ -1,7 +1,7 @@
 {
   "name": "momentum-trading-system",
   "version": "1.0.0",
-  "description": "A professional momentum trading strategy system with stock screening, technical analysis, backtesting, and trading plan generation",
+  "description": "A professional momentum trading strategy system with real-time data analysis and portfolio optimization for Hong Kong, China, and US stock markets",
   "main": "index.html",
   "scripts": {
     "dev": "npx http-server -p 3000 -o",
@@ -12,45 +12,18 @@
     "preview": "npx http-server -p 8080 -o"
   },
   "keywords": [
-    "momentum trading",
-    "stock analysis",
-    "technical analysis",
-    "backtesting",
-    "trading system",
-    "stock screening",
-    "financial dashboard",
-    "investment tools"
+    "momentum-trading",
+    "stock-analysis",
+    "technical-indicators",
+    "portfolio-optimization",
+    "financial-data"
   ],
-  "author": {
-    "name": "Momentum Trading System",
-    "email": "info@momentum-trading.com"
-  },
+  "author": "Adrian Yiu",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/momentum-trading/system.git"
-  },
-  "homepage": "https://momentum-trading-system.vercel.app",
-  "dependencies": {},
   "devDependencies": {
     "http-server": "^14.1.1"
   },
-  "engines": {
-    "node": ">=14.0.0",
-    "npm": ">=6.0.0"
-  },
-  "browserslist": [
-    "> 1%",
-    "last 2 versions",
-    "not dead",
-    "not ie 11"
-  ],
-  "files": [
-    "index.html",
-    "styles/",
-    "js/",
-    "api/",
-    "assets/",
-    "README.md"
-  ]
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  }
 } 
